@@ -31,8 +31,33 @@ class RiskPredictor:
         # Simulated target: risk_score (0-100)
         # In a real scenario, this would be provided in the dataset.
         if 'risk_score' not in df.columns:
-            logger.info("Simulating risk_score for training.")
-            df['risk_score'] = (df['crack_area_percent'] * 5 + df['growth_rate'] * 10 + df['change_score'] * 2).clip(0, 100)
+            logger.info("Simulating balanced dynamic risk_score for training.")
+            # Advanced balanced non-linear scoring logic
+            # Using sqrt/log and interaction terms to prevent early saturation at 100
+            area = df['crack_area_percent']
+            severity = df.get('severity_score', 0)
+            max_sev = df.get('max_severity', 0)
+            comp = df.get('complexity', 0)
+            growth = df.get('growth_rate', 0)
+            change = df.get('change_score', 0)
+            
+            # Formula components:
+            # 1. Base Impact: Area (using sqrt to emphasize initial growth)
+            base_area = np.sqrt(area) * 8.0 
+            
+            # 2. Structural Severity: Mean and Max Intensity
+            struc_impact = (severity * 4.0) + (max_sev * 2.0)
+            
+            # 3. Geometric Complexity: Fractal-like nature of cracks
+            geom_impact = comp * 3.0
+            
+            # 4. Deterioration Velocity: Rapid growth or change
+            vel_impact = (growth * 6.0) + (change * 2.0)
+            
+            # 5. Synergy (Interaction): When large cracks are also very deep
+            synergy = (area * severity) * 0.15
+            
+            df['risk_score'] = (base_area + struc_impact + geom_impact + vel_impact + synergy).clip(0, 100)
             
         X = df.drop(columns=['location_id', 'date', 'risk_score'])
         y = df['risk_score']
@@ -92,6 +117,9 @@ if __name__ == "__main__":
         "location_id": ["L1"]*10,
         "date": ["D"]*10,
         "crack_area_percent": np.random.rand(10) * 10,
+        "severity_score": np.random.rand(10) * 10,
+        "max_severity": np.random.rand(10) * 10,
+        "complexity": np.random.rand(10) * 5,
         "growth_rate": np.random.rand(10) * 2,
         "texture_variance": np.random.rand(10),
         "color_degradation": np.random.rand(10),
@@ -102,6 +130,9 @@ if __name__ == "__main__":
     predictor.train()
     res = predictor.predict({
         "crack_area_percent": 5.0,
+        "severity_score": 4.0,
+        "max_severity": 6.0,
+        "complexity": 2.5,
         "growth_rate": 0.5,
         "texture_variance": 0.2,
         "color_degradation": 0.1,
